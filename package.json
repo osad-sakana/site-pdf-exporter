@@ -1,0 +1,21 @@
+{
+  "name": "site-pdf-exporter",
+  "version": "1.0.0",
+  "description": "指定したURLをPC表示・スマホ表示の2パターンでPDFに書き出すCLIツール",
+  "type": "module",
+  "private": true,
+  "bin": {
+    "site-pdf-exporter": "./bin/site-pdf-exporter.js"
+  },
+  "scripts": {
+    "start": "node bin/site-pdf-exporter.js"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "playwright": "^1.47.0",
+    "zod": "^3.23.8"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
