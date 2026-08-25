@@ -62,7 +62,7 @@ example.com_mobile.pdf
 | `--wait-until <mode>` | ページ読み込み完了の判定条件。`load` / `domcontentloaded` / `networkidle` / `commit` | `networkidle` |
 | `--timeout <ms>` | ページ読み込みのタイムアウト(ミリ秒) | `30000` |
 | `--extra-wait <ms>` | 読み込み完了判定後に追加で待つ時間(ミリ秒)。非同期描画やアニメーション待ちに使用 | `0` |
-| `--skip-scroll` | 遅延読み込み(`loading="lazy"`等)を発火させるための自動スクロールパスを無効化する | 有効 |
+| `--skip-scroll` | 遅延読み込み(`loading="lazy"`等)を発火させるための自動スクロールパスを無効化する | 無効(スクロールを実行) |
 
 無限スクロールや常時通信が発生するサイトでは `networkidle` がタイムアウトすることがありますが、
 その場合もエラーで停止せず、警告を表示した上でその時点で取得できた内容をPDF化します。

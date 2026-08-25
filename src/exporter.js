@@ -18,21 +18,27 @@ async function getMaxPageHeight(page) {
 
 /**
  * 遅延読み込み(loading="lazy"やIntersectionObserver)を発火させるため、
- * ページ最下部まで段階的にスクロールしてから先頭に戻す。
+ * ビューポート高さ単位で最下部まで段階的にスクロールしてから先頭に戻す。
+ * 途中位置を実際に通過させないと、ページ中盤のIntersectionObserverコンテンツが
+ * 一度もビューポートに入らず未読み込みのまま残ってしまうため、一気に最下部へ
+ * ジャンプするのではなく1ステップずつ進める。
  * 無限スクロールで高さが伸び続けるページは maxSteps で打ち切る。
  */
 async function triggerLazyContent(page, maxSteps) {
-  let previousHeight = 0;
+  const viewport = page.viewportSize();
+  const stepSize = viewport ? viewport.height : 800;
+
+  let scrollY = 0;
 
   for (let step = 0; step < maxSteps; step += 1) {
     const currentHeight = await getMaxPageHeight(page);
-    await page.evaluate((y) => window.scrollTo(0, y), currentHeight);
-    await page.waitForTimeout(200);
-
-    if (currentHeight === previousHeight && step > 0) {
+    if (scrollY >= currentHeight) {
       break;
     }
-    previousHeight = currentHeight;
+
+    scrollY = Math.min(scrollY + stepSize, currentHeight);
+    await page.evaluate((y) => window.scrollTo(0, y), scrollY);
+    await page.waitForTimeout(200);
   }
 
   await page.evaluate(() => window.scrollTo(0, 0));
