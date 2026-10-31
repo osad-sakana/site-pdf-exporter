@@ -1,4 +1,5 @@
 import { MAX_SCROLL_STEPS } from './config.js';
+import { freezeViewportHeightUnits } from './viewport-units.js';
 
 /**
  * ページの実際の描画高さを取得する。
@@ -93,6 +94,14 @@ export async function exportVariantPdf({
 
     if (extraWaitMs > 0) {
       await page.waitForTimeout(extraWaitMs);
+    }
+
+    // 100vh等がフルページ高さに引き伸ばされないよう、高さを測る前にpx固定する
+    const { skippedSheets } = await freezeViewportHeightUnits(page, variantConfig.height);
+    if (skippedSheets > 0) {
+      warnings.push(
+        `読み取れないスタイルシートが${skippedSheets}件あり、その中のvh指定は固定できませんでした。`,
+      );
     }
 
     const fullHeight = await getMaxPageHeight(page);
