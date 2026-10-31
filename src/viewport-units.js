@@ -26,7 +26,7 @@ export async function freezeViewportHeightUnits(page) {
     probe.style.cssText = [
       'position:fixed', 'top:0', 'left:0', 'display:block', 'visibility:hidden',
       'pointer-events:none', 'margin:0', 'padding:0', 'border:0', 'box-sizing:content-box',
-      'min-width:0', 'max-width:none', 'transform:none', 'zoom:1', 'height:0',
+      'min-width:0', 'max-width:none', 'transform:none', 'zoom:1', 'height:0', 'transition:none', 'animation:none',
     ].map((d) => `${d}!important`).join(';');
     document.documentElement.appendChild(probe);
     for (const unit of UNITS) {
@@ -49,11 +49,28 @@ export async function freezeViewportHeightUnits(page) {
         return factor ? `${Math.round(parseFloat(num) * factor * 100) / 100}px` : match;
       });
 
-    // var() を含むショートハンドはロングハンドが空値になるため、宣言ブロック全体(cssText)で書き換える
+    // var() を含むショートハンドはロングハンドが空値になるため、宣言ブロック全体(cssText)で書き換える。
+    // ただしcssTextが元の宣言を欠落なく往復できない場合は、既存宣言を消さないようロングハンド単位で書き換える。
     const rewriteStyle = (style) => {
       const text = style.cssText;
       const next = toPx(text);
-      if (next !== text) style.cssText = next;
+      if (next === text) return;
+
+      const scratch = document.createElement('div').style;
+      scratch.cssText = text;
+      if (scratch.length === style.length) {
+        style.cssText = next;
+        return;
+      }
+
+      for (let i = 0; i < style.length; i += 1) {
+        const name = style[i];
+        const value = style.getPropertyValue(name);
+        const replaced = toPx(value);
+        if (replaced !== value) {
+          style.setProperty(name, replaced, style.getPropertyPriority(name));
+        }
+      }
     };
 
     const skippedHosts = [];
