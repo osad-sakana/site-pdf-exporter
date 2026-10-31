@@ -97,11 +97,15 @@ export async function exportVariantPdf({
     }
 
     // 100vh等がフルページ高さに引き伸ばされないよう、高さを測る前にpx固定する
-    const { skippedSheets } = await freezeViewportHeightUnits(page);
-    if (skippedSheets > 0) {
-      warnings.push(
-        `読み取れないスタイルシートが${skippedSheets}件あります。vh指定が含まれている場合は固定されていません。`,
-      );
+    try {
+      const { skippedHosts } = await freezeViewportHeightUnits(page);
+      if (skippedHosts.length > 0) {
+        warnings.push(
+          `読み取れないスタイルシート(${skippedHosts.join(', ')})があります。vh指定が含まれている場合は固定されていません。`,
+        );
+      }
+    } catch (error) {
+      warnings.push(`vh指定の固定に失敗したため、そのままPDFを生成します: ${error.message}`);
     }
 
     const fullHeight = await getMaxPageHeight(page);

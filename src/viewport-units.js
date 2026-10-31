@@ -6,10 +6,10 @@
  * PDF生成前に、現在のビューポートで実測した値のpxへ固定することでこれを防ぐ。
  *
  * 対象: スタイルシート(@import先・adoptedStyleSheets・Shadow DOM内を含む)、<style>、インライン style 属性。
- * 読み取れないスタイルシート(クロスオリジン)の数は skippedSheets として返す。
+ * 読み取れないスタイルシート(クロスオリジン)のホスト名は skippedHosts として返す。
  *
  * @param {import('playwright').Page} page
- * @returns {Promise<{ skippedSheets: number }>}
+ * @returns {Promise<{ skippedHosts: string[] }>}
  */
 export async function freezeViewportHeightUnits(page) {
   return page.evaluate(() => {
@@ -21,12 +21,17 @@ export async function freezeViewportHeightUnits(page) {
 
     // 各単位が実際に何pxになるかをブラウザで実測する(meta viewport未設定のモバイル等でも正しい値を得る)
     const pxPerUnit = {};
-    const probe = document.createElement('div');
-    probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;top:0;left:0;';
+    // サイトのCSS(*{max-width}等)に影響されないよう、独自要素名と !important で測定する
+    const probe = document.createElement('spe-vh-probe');
+    probe.style.cssText = [
+      'position:fixed', 'top:0', 'left:0', 'display:block', 'visibility:hidden',
+      'pointer-events:none', 'margin:0', 'padding:0', 'border:0', 'box-sizing:content-box',
+      'min-width:0', 'max-width:none', 'transform:none', 'zoom:1', 'height:0',
+    ].map((d) => `${d}!important`).join(';');
     document.documentElement.appendChild(probe);
     for (const unit of UNITS) {
       if (!CSS.supports('width', `1${unit}`)) continue;
-      probe.style.width = `100${unit}`;
+      probe.style.setProperty('width', `100${unit}`, 'important');
       const width = probe.getBoundingClientRect().width;
       if (width > 0) pxPerUnit[unit] = width / 100;
     }
@@ -41,21 +46,17 @@ export async function freezeViewportHeightUnits(page) {
     const toPx = (value) =>
       value.replace(PATTERN, (match, num, unit) => {
         const factor = unit && pxPerUnit[unit.toLowerCase()];
-        return factor ? `${parseFloat(num) * factor}px` : match;
+        return factor ? `${Math.round(parseFloat(num) * factor * 100) / 100}px` : match;
       });
 
+    // var() を含むショートハンドはロングハンドが空値になるため、宣言ブロック全体(cssText)で書き換える
     const rewriteStyle = (style) => {
-      for (let i = 0; i < style.length; i += 1) {
-        const name = style[i];
-        const value = style.getPropertyValue(name);
-        const next = toPx(value);
-        if (next !== value) {
-          style.setProperty(name, next, style.getPropertyPriority(name));
-        }
-      }
+      const text = style.cssText;
+      const next = toPx(text);
+      if (next !== text) style.cssText = next;
     };
 
-    let skippedSheets = 0;
+    const skippedHosts = [];
 
     const rewriteRules = (rules) => {
       for (const rule of rules) {
@@ -70,7 +71,7 @@ export async function freezeViewportHeightUnits(page) {
       try {
         rules = sheet.cssRules;
       } catch {
-        skippedSheets += 1;
+        skippedHosts.push(sheet.href ? new URL(sheet.href).host : '(inline)');
         return;
       }
       rewriteRules(rules);
@@ -87,6 +88,6 @@ export async function freezeViewportHeightUnits(page) {
 
     rewriteRoot(document);
 
-    return { skippedSheets };
+    return { skippedHosts: [...new Set(skippedHosts)] };
   });
 }
